@@ -1,0 +1,9 @@
+#large data and models
+*.pt
+*.mp4
+*.png
+*.jpg
+*.csv
+
+#nuiscance files
+.ipynb_checkpoints
