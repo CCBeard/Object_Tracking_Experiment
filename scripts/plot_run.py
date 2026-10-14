@@ -1,5 +1,4 @@
-"""README-ready figures for a training run: loss/metric curves and a detection confusion matrix.
-
+"""
 Usage:
     python scripts/plot_run.py runs/visdrone/y11n_640-2
     python scripts/plot_run.py runs/visdrone/y11n_640-2 --no-cm     # curves only (skips the ~30 s val pass)
@@ -20,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.utils import RESULTS_DIR
 
-TRAIN_COLOR, VAL_COLOR = "#2a78d6", "#eb6834"   # categorical slots 1-2 (blue, orange)
-INK, MUTED, GRID = "#1f1f1e", "#6b6a63", "#e6e5df"
+TRAIN_COLOR, VAL_COLOR = "teal", "tan"   # categorical slots 1-2 (blue, orange)
+INK, MUTED, GRID = "black", "gray", "white"
 
 plt.rcParams.update({
     "axes.edgecolor": MUTED, "axes.labelcolor": INK, "xtick.color": MUTED, "ytick.color": MUTED,
@@ -86,7 +85,7 @@ def plot_confusion(run_dir, out_path):
     metrics = YOLO(run_dir / "weights" / "best.pt").val(
         data=exp["config"]["data"], imgsz=train["imgsz"], batch=16, max_det=train.get("max_det", 300),
         split="val", plots=True, verbose=False,  # plots=False skips filling the confusion matrix
-        conf=0.25,  # the CM uses the val conf threshold; default 0.001 (meant for mAP) floods it with FPs
+        conf=0.25,  # the CM uses the val conf threshold
         project=str(run_dir), name="val_cm", exist_ok=True)
 
     # Ultralytics layout: matrix[predicted, true], last row/col = "background".

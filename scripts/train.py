@@ -1,4 +1,4 @@
-"""Fine-tune a YOLO model from a YAML config, then log final val metrics to results/.
+"""Fine-tune a YOLO model
 
 Usage:
     python scripts/train.py --config configs/y11n_640.yaml
