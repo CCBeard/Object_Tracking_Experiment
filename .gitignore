@@ -4,6 +4,16 @@
 *.png
 *.jpg
 *.csv
+*.txt
+data/
+datasets/
+runs/
+
+#but keep the small results tables for the README
+!results/**/*.csv
+!requirements.txt
 
 #nuiscance files
 .ipynb_checkpoints
+.virtual_documents
+__pycache__

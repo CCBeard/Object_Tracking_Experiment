@@ -1,0 +1,15 @@
+# Small-object ablation: same as y11n_640 but at higher input resolution.
+name: y11n_1024
+model: yolo11n.pt
+data: VisDrone.yaml
+
+train:
+  imgsz: 1024
+  epochs: 100
+  batch: -1            # 1024px uses ~2.5x the memory of 640; let Ultralytics size it for 8 GB
+  patience: 30
+  seed: 0
+  deterministic: true
+  workers: 4
+  cache: false
+  max_det: 500         # detections kept per image after NMS; VisDrone val has images with 300+ objects
