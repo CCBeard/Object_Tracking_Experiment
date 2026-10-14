@@ -1,13 +1,13 @@
 """Fine-tune a YOLO model
 
 Usage:
-    python scripts/train.py --config configs/y11n_640.yaml
-    python scripts/train.py --config configs/y11n_640.yaml --set epochs=1 fraction=0.05   # smoke test
+    python scripts/train.py --config configs/yolo11n_640.yaml
+    python scripts/train.py --config configs/yolo11n_640.yaml --set epochs=1 fraction=0.05   # smoke test
 
 Outputs:
     runs/visdrone/<name>/          Ultralytics run dir (weights, curves, confusion matrix, results.csv)
-    results/runs.csv               one row per run: headline metrics + hardware/versions
-    results/per_class/<name>.csv   per-class AP50 and AP50-95 on val
+    ClearML task                   project CLEARML_PROJECT; config, env, curves, plots, best.pt,
+                                   val_best metrics and per-class AP
 """
 
 import argparse
@@ -18,9 +18,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import pandas as pd
+from clearml import Task
 from ultralytics import YOLO
 
-from src.utils import RESULTS_DIR, REPO_ROOT, append_csv, env_info, load_config, timestamp
+from src.utils import REPO_ROOT, env_info, load_config
+
+CLEARML_PROJECT = "Object_Tracking/VisDrone"
 
 
 def parse_args():
@@ -34,8 +38,22 @@ def parse_args():
 def main():
     args = parse_args()
     cfg = load_config(args.config, args.set)
+
+    # Created before YOLO so the Ultralytics ClearML callback logs into this task instead of making its own.
+    task = Task.init(
+        project_name=CLEARML_PROJECT,
+        task_name=cfg["name"],
+        tags=[cfg["model"], f"imgsz{cfg['train']['imgsz']}"],
+        output_uri=True,  # upload best.pt to the ClearML file server
+        reuse_last_task_id=False,
+        auto_connect_frameworks={"pytorch": False, "matplotlib": False},  # the callback logs these itself
+    )
+    task.connect(cfg, name="Experiment")
+    logger = task.get_logger()
+
     name, train_args = cfg["name"], cfg["train"]
     env = env_info()
+    task.connect(env, name="Environment")
     print(f"[{name}] env: {env}")
 
     # --- train ---
@@ -57,32 +75,19 @@ def main():
                        split="val", project=str(save_dir), name="val_best")
     box = metrics.box
 
-    append_csv(RESULTS_DIR / "runs.csv", {
-        "timestamp": timestamp(),
-        "name": name,
-        "run_dir": save_dir.relative_to(REPO_ROOT).as_posix(),
-        "model": cfg["model"],
-        "imgsz": train_args["imgsz"],
-        "epochs": train_args["epochs"],
-        "batch": train_args["batch"],
-        "seed": train_args.get("seed"),
-        "precision": round(box.mp, 4),
-        "recall": round(box.mr, 4),
-        "mAP50": round(box.map50, 4),
-        "mAP50-95": round(box.map, 4),
-        "train_hours": round(train_hours, 2),
-        **env,
-    })
+    per_class = pd.DataFrame({
+        "class": [metrics.names[int(c)] for c in box.ap_class_index],
+        "AP50": box.ap50.round(4),
+        "AP50-95": box.ap.round(4),
+    }).set_index("class")
 
-    for i, cls_idx in enumerate(box.ap_class_index):
-        append_csv(RESULTS_DIR / "per_class" / f"{save_dir.name}.csv", {
-            "class": metrics.names[int(cls_idx)],
-            "AP50": round(float(box.ap50[i]), 4),
-            "AP50-95": round(float(box.ap[i]), 4),
-        })
+    for k, v in {"precision": box.mp, "recall": box.mr, "mAP50": box.map50, "mAP50-95": box.map,
+                 "train_hours": train_hours}.items():
+        logger.report_single_value(f"val_best/{k}", round(float(v), 4))
+    logger.report_table("Per-class AP (val_best)", "val", iteration=0, table_plot=per_class)
+    task.close()
 
     print(f"[{name}] done in {train_hours:.2f} h  mAP50={box.map50:.4f}  mAP50-95={box.map:.4f}")
-    print(f"[{name}] logged to {RESULTS_DIR / 'runs.csv'}")
 
 
 if __name__ == "__main__":  # required on Windows: dataloader workers re-import this module

@@ -3,7 +3,7 @@
 Usage:
     python scripts/compare_pred_gt.py --index 42
     python scripts/compare_pred_gt.py                      # random image
-    python scripts/compare_pred_gt.py --index 42 --imgsz 1024 --conf 0.4 --weights runs/visdrone/y11n_1024/weights/best.pt
+    python scripts/compare_pred_gt.py --index 42 --imgsz 1024 --conf 0.4 --weights runs/visdrone/yolo11n_1024/weights/best.pt
     python scripts/compare_pred_gt.py --index 42 --model-view   # draw on the 640px image the model sees
     python scripts/compare_pred_gt.py --index 42 --save    # also write results/figures/compare/
 

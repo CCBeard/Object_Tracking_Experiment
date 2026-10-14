@@ -1,5 +1,5 @@
-# Small-object ablation: same as y11n_640 but at higher input resolution.
-name: y11n_1024
+# Small-object ablation: same as yolo11n_640 but at higher input resolution.
+name: yolo11n_1024
 model: yolo11n.pt
 data: VisDrone.yaml
 
