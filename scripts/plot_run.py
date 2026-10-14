@@ -1,9 +1,9 @@
 """
 Usage:
-    python scripts/plot_run.py runs/visdrone/y11n_640-2
-    python scripts/plot_run.py runs/visdrone/y11n_640-2 --no-cm     # curves only (skips the ~30 s val pass)
+    python scripts/plot_run.py runs/visdrone/yolo11n_640
+    python scripts/plot_run.py runs/visdrone/yolo11n_640 --no-cm     # curves only (skips the ~30 s val pass)
 
-Writes to results/figures/<run_name>_curves.png and <run_name>_confusion.png.
+Attaches the figures to the run's ClearML training task (id read from <run_dir>/experiment.json).
 """
 
 import argparse
@@ -17,7 +17,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.utils import RESULTS_DIR
+from clearml import Task
 
 TRAIN_COLOR, VAL_COLOR = "teal", "tan"   # categorical slots 1-2 (blue, orange)
 INK, MUTED, GRID = "black", "gray", "white"
@@ -30,7 +30,7 @@ plt.rcParams.update({
 })
 
 
-def plot_curves(run_dir, out_path):
+def plot_curves(run_dir):
     df = pd.read_csv(run_dir / "results.csv")
     df.columns = df.columns.str.strip()
     ep = df["epoch"]
@@ -72,18 +72,15 @@ def plot_curves(run_dir, out_path):
 
     fig.suptitle(f"Training curves - {run_dir.name}   (shaded: final {close_mosaic} epochs, mosaic augmentation off)",
                  x=0.01, ha="left", fontweight="bold", color=INK)
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-    print(f"wrote {out_path}")
+    return fig
 
 
-def plot_confusion(run_dir, out_path):
+def plot_confusion(run_dir, cfg):
     from ultralytics import YOLO
 
-    exp = json.loads((run_dir / "experiment.json").read_text())
-    train = exp["config"]["train"]
+    train = cfg["train"]
     metrics = YOLO(run_dir / "weights" / "best.pt").val(
-        data=exp["config"]["data"], imgsz=train["imgsz"], batch=16, max_det=train.get("max_det", 300),
+        data=cfg["data"], imgsz=train["imgsz"], batch=16, max_det=train.get("max_det", 300),
         split="val", plots=True, verbose=False,  # plots=False skips filling the confusion matrix
         conf=0.25,  # the CM uses the val conf threshold
         project=str(run_dir), name="val_cm", exist_ok=True)
@@ -115,9 +112,7 @@ def plot_confusion(run_dir, out_path):
                  "columns normalized by true class; background column = false-positive counts",
                  loc="left", fontsize=10)
     fig.colorbar(im, ax=ax, shrink=0.75, label="fraction of true-class instances")
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-    print(f"wrote {out_path}")
+    return fig
 
 
 def main():
@@ -126,11 +121,18 @@ def main():
     p.add_argument("--no-cm", action="store_true", help="skip the confusion matrix (needs a val pass)")
     args = p.parse_args()
 
-    out_dir = RESULTS_DIR / "figures"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    plot_curves(args.run_dir, out_dir / f"{args.run_dir.name}_curves.png")
+    exp = json.loads((args.run_dir / "experiment.json").read_text())
+    task = Task.get_task(task_id=exp["clearml_task_id"])
+    logger = task.get_logger()
+
+    figs = {"curves": plot_curves(args.run_dir)}
     if not args.no_cm:
-        plot_confusion(args.run_dir, out_dir / f"{args.run_dir.name}_confusion.png")
+        figs["confusion"] = plot_confusion(args.run_dir, exp["config"])
+    for series, fig in figs.items():
+        logger.report_matplotlib_figure("Figures", series, fig, iteration=0, report_image=True)
+        plt.close(fig)
+    task.flush(wait_for_uploads=True)
+    print(f"uploaded {list(figs)} to ClearML task {task.id}")
 
 
 if __name__ == "__main__":

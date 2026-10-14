@@ -65,7 +65,7 @@ def main():
 
     # Snapshot exactly what was run next to the weights.
     with open(save_dir / "experiment.json", "w") as f:
-        json.dump({"config": cfg, "env": env}, f, indent=2)
+        json.dump({"config": cfg, "env": env, "clearml_task_id": task.id}, f, indent=2)
 
     # --- evaluate best checkpoint on val ---
     best = YOLO(model.trainer.best)

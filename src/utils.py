@@ -1,9 +1,7 @@
-"""Shared helpers: config loading, environment capture, and CSV results logging."""
+"""Shared helpers: config loading and environment capture."""
 
-import csv
 import platform
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -44,19 +42,3 @@ def env_info():
         "os": platform.platform(),
         "git_commit": commit,
     }
-
-
-def append_csv(path, row):
-    """Append a dict as a row, writing the header if the file is new."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    is_new = not path.exists()
-    with open(path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row))
-        if is_new:
-            writer.writeheader()
-        writer.writerow(row)
-
-
-def timestamp():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
