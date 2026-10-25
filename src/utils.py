@@ -1,4 +1,4 @@
-"""Shared helpers: config loading and environment capture."""
+"""Shared helpers: config loading, environment capture, and speed measurement."""
 
 import platform
 import subprocess
@@ -7,7 +7,6 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RESULTS_DIR = REPO_ROOT / "results"
 
 
 def load_config(path, overrides=None):
@@ -42,3 +41,17 @@ def env_info():
         "os": platform.platform(),
         "git_commit": commit,
     }
+
+
+def measure_fps(model, data, imgsz, n=200, warmup=20):
+    """Batch-1 predict speed on val images: (FPS, mean ms per image), pre + inference + postprocess."""
+    from ultralytics.data.utils import check_det_dataset
+
+    images = sorted(Path(check_det_dataset(data)["val"]).glob("*.jpg"))[: n + warmup]
+    ms = []
+    for i, img in enumerate(images):
+        speed = model.predict(img, imgsz=imgsz, verbose=False)[0].speed
+        if i >= warmup:
+            ms.append(sum(speed.values()))
+    mean_ms = sum(ms) / len(ms)
+    return 1000 / mean_ms, mean_ms

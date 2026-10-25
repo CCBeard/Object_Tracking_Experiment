@@ -1,0 +1,15 @@
+# Sweep: both levers; compare to yolo11n_1024 and yolo11s_640.
+name: yolo11s_1024
+model: yolo11s.pt
+data: VisDrone.yaml
+
+train:
+  imgsz: 1024
+  epochs: 100
+  batch: -1
+  patience: 30
+  seed: 0
+  deterministic: true
+  workers: 4
+  cache: false
+  max_det: 500

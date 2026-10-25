@@ -7,7 +7,7 @@ Usage:
 Outputs:
     runs/visdrone/<name>/          Ultralytics run dir (weights, curves, confusion matrix, results.csv)
     ClearML task                   project CLEARML_PROJECT; config, env, curves, plots, best.pt,
-                                   val_best metrics and per-class AP
+                                   val_best metrics, per-class AP and batch-1 FPS
 """
 
 import argparse
@@ -22,7 +22,7 @@ import pandas as pd
 from clearml import Task
 from ultralytics import YOLO
 
-from src.utils import REPO_ROOT, env_info, load_config
+from src.utils import REPO_ROOT, env_info, load_config, measure_fps
 
 CLEARML_PROJECT = "Object_Tracking/VisDrone"
 
@@ -43,12 +43,13 @@ def main():
     task = Task.init(
         project_name=CLEARML_PROJECT,
         task_name=cfg["name"],
-        tags=[cfg["model"], f"imgsz{cfg['train']['imgsz']}"],
         output_uri=True,  # upload best.pt to the ClearML file server
         reuse_last_task_id=False,
         auto_connect_frameworks={"pytorch": False, "matplotlib": False},  # the callback logs these itself
     )
-    task.connect(cfg, name="Experiment")
+    task.connect(cfg, name="Experiment")  # under clearml-agent, this applies the UI/queued overrides to cfg
+    task.set_name(cfg["name"])
+    task.add_tags([cfg["model"], f"imgsz{cfg['train']['imgsz']}"])  # add, not set: keeps the "sweep" tag
     logger = task.get_logger()
 
     name, train_args = cfg["name"], cfg["train"]
@@ -74,6 +75,7 @@ def main():
                        max_det=train_args.get("max_det", 300),
                        split="val", project=str(save_dir), name="val_best")
     box = metrics.box
+    fps, latency_ms = measure_fps(best, cfg["data"], train_args["imgsz"])
 
     per_class = pd.DataFrame({
         "class": [metrics.names[int(c)] for c in box.ap_class_index],
@@ -82,12 +84,12 @@ def main():
     }).set_index("class")
 
     for k, v in {"precision": box.mp, "recall": box.mr, "mAP50": box.map50, "mAP50-95": box.map,
-                 "train_hours": train_hours}.items():
+                 "fps": fps, "latency_ms": latency_ms, "train_hours": train_hours}.items():
         logger.report_single_value(f"val_best/{k}", round(float(v), 4))
     logger.report_table("Per-class AP (val_best)", "val", iteration=0, table_plot=per_class)
     task.close()
 
-    print(f"[{name}] done in {train_hours:.2f} h  mAP50={box.map50:.4f}  mAP50-95={box.map:.4f}")
+    print(f"[{name}] done in {train_hours:.2f} h  mAP50={box.map50:.4f}  mAP50-95={box.map:.4f}  fps={fps:.1f}")
 
 
 if __name__ == "__main__":  # required on Windows: dataloader workers re-import this module
