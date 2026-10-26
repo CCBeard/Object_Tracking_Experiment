@@ -1,5 +1,5 @@
 # Baseline: YOLO11n fine-tuned from COCO weights at the default resolution.
-name: y11n_640
+name: yolo11n_640
 model: yolo11n.pt      # pretrained COCO checkpoint (auto-downloads if missing)
 data: VisDrone.yaml    # Ultralytics built-in; downloads + converts VisDrone on first use
 

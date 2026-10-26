@@ -1,15 +1,12 @@
-"""Shared helpers: config loading, environment capture, and CSV results logging."""
+"""Shared helpers: config loading, environment capture, and speed measurement."""
 
-import csv
 import platform
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RESULTS_DIR = REPO_ROOT / "results"
 
 
 def load_config(path, overrides=None):
@@ -46,17 +43,15 @@ def env_info():
     }
 
 
-def append_csv(path, row):
-    """Append a dict as a row, writing the header if the file is new."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    is_new = not path.exists()
-    with open(path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row))
-        if is_new:
-            writer.writeheader()
-        writer.writerow(row)
+def measure_fps(model, data, imgsz, n=200, warmup=20):
+    """Batch-1 predict speed on val images: (FPS, mean ms per image), pre + inference + postprocess."""
+    from ultralytics.data.utils import check_det_dataset
 
-
-def timestamp():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    images = sorted(Path(check_det_dataset(data)["val"]).glob("*.jpg"))[: n + warmup]
+    ms = []
+    for i, img in enumerate(images):
+        speed = model.predict(img, imgsz=imgsz, verbose=False)[0].speed
+        if i >= warmup:
+            ms.append(sum(speed.values()))
+    mean_ms = sum(ms) / len(ms)
+    return 1000 / mean_ms, mean_ms

@@ -1,0 +1,15 @@
+# Sweep: model-size lever; compare to yolo11n_640 (same batch).
+name: yolo11s_640
+model: yolo11s.pt
+data: VisDrone.yaml
+
+train:
+  imgsz: 640
+  epochs: 100
+  batch: 16
+  patience: 30
+  seed: 0
+  deterministic: true
+  workers: 4
+  cache: false
+  max_det: 500

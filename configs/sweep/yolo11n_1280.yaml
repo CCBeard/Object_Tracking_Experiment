@@ -1,0 +1,15 @@
+# Sweep: resolution lever; compare to yolo11n_1024.
+name: yolo11n_1280
+model: yolo11n.pt
+data: VisDrone.yaml
+
+train:
+  imgsz: 1280
+  epochs: 100
+  batch: -1
+  patience: 30
+  seed: 0
+  deterministic: true
+  workers: 4
+  cache: false
+  max_det: 500
