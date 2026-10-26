@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from clearml import Task
+from clearml.backend_api.session.client import APIClient
 
 from src.utils import REPO_ROOT, load_config
 
@@ -28,6 +29,11 @@ def main():
     p.add_argument("configs", nargs="+", type=Path, help="experiment YAMLs, queued in this order")
     p.add_argument("--queue", default="sweep")
     args = p.parse_args()
+
+    client = APIClient()
+    if not any(q.name == args.queue for q in client.queues.get_all(name=args.queue)):
+        client.queues.create(name=args.queue)
+        print(f"created queue '{args.queue}'")
 
     for cfg_path in args.configs:
         name = load_config(cfg_path)["name"]
